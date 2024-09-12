@@ -9,28 +9,32 @@ import (
 )
 
 type IssuesResponse struct {
-	TotalCount int     `json:"total_count"`
-	Items      []Issue `json:"items"`
+	TotalCount 				int     `json:"total_count"`
+	Items      				[]Issue `json:"items"`
 }
 
 type Issue struct {
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	URL       string `json:"html_url"`
-	State     string `json:"state"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	CommentsURL string `json:"comments_url"` // Add the URL to fetch comments
+	Title						string `json:"title"`
+	Body						string `json:"body"`
+	URL       			string `json:"html_url"`
+	State     			string `json:"state"`
+	CreatedAt 			string `json:"created_at"`
+	UpdatedAt 			string `json:"updated_at"`
+	CommentsURL 		string `json:"comments_url"`
+	Repository 			string `json:"repository"`
+	Organization 		string `json:"organization"`
+	RepositoryURL string `json:"repository_url"`
 }
 
 type Comment struct {
-	Body      string `json:"body"`
-	User      struct {
-		Login string `json:"login"`
-	} `json:"user"`
-	CreatedAt string `json:"created_at"`
+	Body      		string `json:"body"`
+	User      		User `json:"user"`
+	CreatedAt 		string `json:"created_at"`
 }
 
+type User struct {
+	Login string `json:"login"`
+}
 
 func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 	query := fmt.Sprintf("assignee:%s", url.QueryEscape(ghUsername))
@@ -65,6 +69,12 @@ func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 		if err := json.NewDecoder(resp.Body).Decode(&issuesPage); err != nil {
 			log.Fatalf("Error decoding JSON: %v", err)
 			return nil, err
+		}
+
+		for i, issue := range issuesPage.Items {
+			org, repo := extractRepoAndOrg(issue.RepositoryURL)
+			issuesPage.Items[i].Organization = org
+			issuesPage.Items[i].Repository = repo
 		}
 
 		allIssues.Items = append(allIssues.Items, issuesPage.Items...)

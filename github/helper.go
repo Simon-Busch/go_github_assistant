@@ -1,6 +1,9 @@
 package github
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 func getNextPageURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
@@ -18,4 +21,18 @@ func getNextPageURL(linkHeader string) string {
 		}
 	}
 	return ""
+}
+
+func extractRepoAndOrg(repoURL string) (string, string) {
+	u, err := url.Parse(repoURL)
+	if err != nil {
+		return "", ""
+	}
+	parts := strings.Split(u.Path, "/")
+	if len(parts) >= 3 {
+		organization := parts[2] // Extract the organization
+		repository := parts[3]   // Extract the repository name
+		return organization, repository
+	}
+	return "", ""
 }
