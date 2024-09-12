@@ -45,18 +45,26 @@ func main() {
 		issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, issue.Title, color)
 	}
 	issuesList.SelectedRowStyle.Fg = ui.ColorYellow
-	issuesList.SetRect(0, 3, termWidth/2, termHeight-4)
+	issuesList.SetRect(0, 3, termWidth/2, termHeight-5)
 
 	issueDetails := widgets.NewParagraph()
 	issueDetails.Title = "Issue Details"
 	issueDetails.Text = "Select an issue to see details."
-	issueDetails.SetRect(termWidth, 3, 100, termHeight-4)
+	issueDetails.SetRect(termWidth, 3, termWidth/2, termHeight-5)
 
-	ui.Render(actionsTabs, issuesList, issueDetails)
+	//Basically add it at the bottom
+	action := widgets.NewParagraph()
+	action.SetRect(0, termHeight-4, termWidth, termHeight)
+	action.Title = "Help"
+	action.Text = "Press 'h' to show help."
+
+	ui.Render(actionsTabs, issuesList, issueDetails, action)
 
 	selectedIndex := 0
 	showComments := false
 	commentsText := ""
+	showHelper := false
+	var help *widgets.Paragraph
 
 	updateIssueDetails := func(index int, showComments bool) {
 		issue := issues[index]
@@ -69,7 +77,6 @@ func main() {
 		issueDetails.Text = issueText
 		ui.Render(issuesList, issueDetails)
 	}
-
 
 	updateIssueDetails(selectedIndex, showComments)
 
@@ -109,7 +116,25 @@ func main() {
 			if err != nil {
 				log.Printf("Failed to open browser: %v", err)
 			}
+		case "h":
+			//TODO - not working
+			showHelper = !showHelper
+			if showHelper {
+				help = widgets.NewParagraph()
+				helpBoxWidth := termWidth / 2
+				helpBoxHeight := termHeight / 4
+				x0 := (termWidth - helpBoxWidth) / 2
+				y0 := (termHeight - helpBoxHeight) / 2
+				x1 := x0 + helpBoxWidth
+				y1 := y0 + helpBoxHeight
 
+				// Set the help box position in the center of the screen
+				help.SetRect(x0, y0, x1, y1)
+				help.Title = "Help"
+				help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n'h' to open help "
+			} else {
+				help = nil // Clear the help when toggling off
+			}
 		case "<C-c>":
 			issue := issues[selectedIndex]
 			if !showComments {
@@ -131,6 +156,9 @@ func main() {
 			updateIssueDetails(selectedIndex, showComments)
 		}
 		ui.Render(issuesList, issueDetails)
+		if showHelper && help != nil {
+			ui.Render(help)
+		}
 	}
 }
 
