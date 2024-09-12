@@ -1,0 +1,113 @@
+package github
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+)
+
+type IssuesResponse struct {
+	TotalCount int     `json:"total_count"`
+	Items      []Issue `json:"items"`
+}
+
+type Issue struct {
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	URL       string `json:"html_url"`
+	State     string `json:"state"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	CommentsURL string `json:"comments_url"` // Add the URL to fetch comments
+}
+
+type Comment struct {
+	Body      string `json:"body"`
+	User      struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	CreatedAt string `json:"created_at"`
+}
+
+
+func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
+	query := fmt.Sprintf("assignee:%s", url.QueryEscape(ghUsername))
+	apiURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&per_page=100", query)
+
+	var allIssues IssuesResponse
+	pageURL := apiURL
+
+	for {
+		req, err := http.NewRequest("GET", pageURL, nil)
+		if err != nil {
+			log.Fatalf("Error creating request: %v", err)
+			return nil, err
+		}
+
+		req.SetBasicAuth(ghUsername, ghToken)
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Fatalf("Error making request: %v", err)
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("Error: received non-200 response code: %d", resp.StatusCode)
+			return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
+		}
+		fmt.Printf("Rsp body %+v",resp.Body)
+
+		var issuesPage IssuesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&issuesPage); err != nil {
+			log.Fatalf("Error decoding JSON: %v", err)
+			return nil, err
+		}
+
+		allIssues.Items = append(allIssues.Items, issuesPage.Items...)
+
+		linkHeader := resp.Header.Get("Link")
+		nextURL := getNextPageURL(linkHeader)
+		if nextURL == "" {
+			break // No more pages
+		}
+		pageURL = nextURL
+	}
+
+	return &allIssues, nil
+}
+
+func fetchComments(commentsURL, ghUsername, ghToken string) ([]Comment, error) {
+	req, err := http.NewRequest("GET", commentsURL, nil)
+	if err != nil {
+		log.Fatalf("Error creating request: %v", err)
+		return nil, err
+	}
+
+	req.SetBasicAuth(ghUsername, ghToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making request: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error: received non-200 response code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
+	}
+
+	var comments []Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		log.Fatalf("Error decoding comments JSON: %v", err)
+		return nil, err
+	}
+
+	return comments, nil
+}

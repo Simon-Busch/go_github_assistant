@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"log"
+
+	"github.com/Simon-Busch/go_github_assistant/github"
+	"github.com/Simon-Busch/go_github_assistant/utils"
 	// ui "github.com/gizak/termui/v3"
 	// "github.com/gizak/termui/v3/widgets"
-	"github.com/Simon-Busch/go_github_assistant/utils"
 )
 
 func main() {
-	_, _, err := utils.InitEnv()
+	ghUserName, ghToken, err := utils.InitEnv()
 	if err != nil {
 		panic("please provide a .env file with GITHUB_USERNAME and GITHUB_TOKEN")
 	}
@@ -17,10 +21,13 @@ func main() {
 	// defer ui.Close()
 
 	// // Set up a simple UI element (e.g., a paragraph)
-	// p := widgets.NewParagraph()
-	// p.Text = "Press 'q' to quit"
-	// p.SetRect(0, 0, 50, 3)
-	// ui.Render(p)
+	// waitingScreen := widgets.NewParagraph()
+	// waitingScreen.Text = "Github assistant\nPress 'q' to quit"
+
+	// termWidth, termHeight := ui.TerminalDimensions()
+	// waitingScreen.SetRect(0, 0, termWidth, termHeight)
+	// ui.Render(waitingScreen)
+
 
 	// // Event handler for key presses
 	// for e := range ui.PollEvents() {
@@ -29,4 +36,17 @@ func main() {
 	// 		return
 	// 	}
 	// }
+	issues, err := github.FetchIssues(ghUserName, ghToken)
+	if err != nil {
+		log.Fatalf("Error fetching issues: %v", err)
+		
+	}
+
+	fmt.Println("Issues assigned: %s",len(issues.Items))
+
+	pr, err := github.FetchReviewRequests(ghUserName, ghToken)
+	if err != nil {
+		log.Fatalf("Error fetching pull requests: %v", err)
+	}
+	fmt.Println("Pull requests assigned: %s",len(pr.Items))
 }
