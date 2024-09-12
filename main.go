@@ -21,44 +21,29 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error fetching issues: %v", err)
 	}
-	issues := issuesResponse.Items
+	issuesRaw := issuesResponse.Items
+	var issues []github.Issue
+	var closedIssues []github.Issue
+	for i, issue := range issuesResponse.Items {
+		if issue.State == "open" {
+			issues = append(issues, issuesRaw[i])
+		} else {
+			closedIssues = append(closedIssues, issuesRaw[i])
+		}
+	}
 
 	if err := ui.Init(); err != nil {
 		log.Fatal(err)
 	}
 	defer ui.Close()
+
 	termWidth, termHeight := ui.TerminalDimensions()
+	actionsTabs := renderHeader()
+	issuesList := renderIssues(issues)
+	issueDetails := renderIssueDetails()
+	footer := renderFooter()
 
-	actionsTabs := widgets.NewTabPane("Github Assistant", "Issues", "Pull Requests", "Help")
-	actionsTabs.SetRect(0, 0, termWidth, 3)
-
-	issuesList := widgets.NewList()
-	issuesList.Title = "Issues"
-	issuesList.Rows = make([]string, len(issues))
-	for i, issue := range issues {
-		var color string
-		if issue.State == "open" {
-			color = "green"
-		} else {
-			color = "red"
-		}
-		issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, issue.Title, color)
-	}
-	issuesList.SelectedRowStyle.Fg = ui.ColorYellow
-	issuesList.SetRect(0, 3, termWidth/2, termHeight-5)
-
-	issueDetails := widgets.NewParagraph()
-	issueDetails.Title = "Issue Details"
-	issueDetails.Text = "Select an issue to see details."
-	issueDetails.SetRect(termWidth, 3, termWidth/2, termHeight-5)
-
-	//Basically add it at the bottom
-	action := widgets.NewParagraph()
-	action.SetRect(0, termHeight-4, termWidth, termHeight)
-	action.Title = "Help"
-	action.Text = "Press 'h' to show help."
-
-	ui.Render(actionsTabs, issuesList, issueDetails, action)
+	ui.Render(actionsTabs, issuesList, issueDetails, footer)
 
 	selectedIndex := 0
 	showComments := false
@@ -66,19 +51,7 @@ func main() {
 	showHelper := false
 	var help *widgets.Paragraph
 
-	updateIssueDetails := func(index int, showComments bool) {
-		issue := issues[index]
-		issueText := fmt.Sprintf(
-			"Title: %s\n\nRepository: %s\nOrganization: %s\n\nState: %s\n\nURL: %s\nCreated At: %s\n\nDescription:\n\n%s",
-			issue.Title, issue.Repository, issue.Organization, issue.State, issue.URL, issue.CreatedAt, issue.Body)
-		if showComments && commentsText != "" {
-			issueText += fmt.Sprintf("\n\nComments:\n%s", commentsText)
-		}
-		issueDetails.Text = issueText
-		ui.Render(issuesList, issueDetails)
-	}
-
-	updateIssueDetails(selectedIndex, showComments)
+	updateIssueDetails(issues,selectedIndex, showComments, commentsText, issueDetails, issuesList)
 
 	uiEvents := ui.PollEvents()
 	for {
@@ -90,24 +63,24 @@ func main() {
 			if selectedIndex < len(issues)-1 {
 				selectedIndex++
 				issuesList.ScrollDown()
-				updateIssueDetails(selectedIndex, showComments)
+				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			if selectedIndex == len(issues)-1 {
 				selectedIndex = 0
 				issuesList.ScrollTop()
-				updateIssueDetails(selectedIndex, showComments)
+				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			commentsText = ""
 		case "<Up>":
 			if selectedIndex > 0 {
 				selectedIndex--
 				issuesList.ScrollUp()
-				updateIssueDetails(selectedIndex, showComments)
+				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			if selectedIndex == 0 {
 				selectedIndex = len(issues) - 1
 				issuesList.ScrollBottom()
-				updateIssueDetails(selectedIndex, showComments)
+				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			commentsText = ""
 		case "<Enter>":
@@ -117,7 +90,6 @@ func main() {
 				log.Printf("Failed to open browser: %v", err)
 			}
 		case "h":
-			//TODO - not working
 			showHelper = !showHelper
 			if showHelper {
 				help = widgets.NewParagraph()
@@ -128,32 +100,36 @@ func main() {
 				x1 := x0 + helpBoxWidth
 				y1 := y0 + helpBoxHeight
 
-				// Set the help box position in the center of the screen
 				help.SetRect(x0, y0, x1, y1)
 				help.Title = "Help"
 				help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n'h' to open help "
 			} else {
 				help = nil // Clear the help when toggling off
 			}
+		case "<C-o>":
+			//TODO - Not working
+			issues = closedIssues
+			issuesList := renderIssues(issues)
+			ui.Render(issuesList)
 		case "<C-c>":
 			issue := issues[selectedIndex]
 			if !showComments {
-				// Fetch comments if not already fetched
 				comments, err := github.FetchComments(issue.CommentsURL, ghUserName, ghToken)
 				if err != nil {
 					log.Printf("Error fetching comments for issue %s: %v", issue.URL, err)
 					commentsText = "Error fetching comments."
 				} else {
-					// Build the comments text
 					commentsText = ""
 					for _, comment := range comments {
-						commentsText += fmt.Sprintf("Comment by %s at %s:\n%s\n\n",
-							comment.User.Login, comment.CreatedAt, comment.Body)
+						if (comment.User.Login != "vercel[bot]") {
+							commentsText += fmt.Sprintf("Comment by %s at %s:\n%s\n\n",
+								comment.User.Login, comment.CreatedAt, comment.Body)
+						}
 					}
 				}
 			}
-			showComments = !showComments // Toggle comments visibility
-			updateIssueDetails(selectedIndex, showComments)
+			showComments = !showComments
+			updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 		}
 		ui.Render(issuesList, issueDetails)
 		if showHelper && help != nil {
@@ -170,11 +146,69 @@ func openBrowser(url string) error {
 		err = exec.Command("xdg-open", url).Start()
 	case "windows":
 		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin": // macOS
+	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
 
 	return err
+}
+
+func updateIssueDetails(issues []github.Issue ,index int, showComments bool, commentsText string, issueDetails *widgets.Paragraph, issuesList *widgets.List) {
+	issue := issues[index]
+	issueText := fmt.Sprintf(
+		"Title: %s\n\nRepository: %s\nOrganization: %s\n\nState: %s\n\nURL: %s\nCreated At: %s\n\nDescription:\n\n%s",
+		issue.Title, issue.Repository, issue.Organization, issue.State, issue.URL, issue.CreatedAt, issue.Body)
+	if showComments && commentsText != "" {
+		issueText += fmt.Sprintf("\n\nComments:\n%s", commentsText)
+	}
+	issueDetails.Text = issueText
+	ui.Render(issuesList, issueDetails)
+}
+
+
+func renderIssues(issues []github.Issue) *widgets.List {
+	termWidth, termHeight := ui.TerminalDimensions()
+	issuesList := widgets.NewList()
+	issuesList.Title = "Issues"
+	issuesList.Rows = make([]string, len(issues))
+	for i, issue := range issues {
+		var color string
+		if issue.State == "open" {
+			color = "green"
+		} else {
+			color = "red"
+		}
+		issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, issue.Title, color)
+	}
+	issuesList.SelectedRowStyle.Fg = ui.ColorYellow
+	issuesList.SetRect(0, 3, termWidth/2, termHeight-5)
+
+	return issuesList
+}
+
+func renderHeader() *widgets.TabPane {
+	termWidth, _ := ui.TerminalDimensions()
+	actionsTabs := widgets.NewTabPane("Github Assistant", "Issues", "Pull Requests", "Help")
+	actionsTabs.SetRect(0, 0, termWidth, 3)
+	return actionsTabs
+}
+
+func renderFooter() *widgets.Paragraph {
+	termWidth, termHeight := ui.TerminalDimensions()
+	footer := widgets.NewParagraph()
+	footer.SetRect(0, termHeight-4, termWidth, termHeight)
+	footer.Title = "Help"
+	footer.Text = "Press 'h' to show help."
+	return footer
+}
+
+func renderIssueDetails() *widgets.Paragraph {
+	termWidth, termHeight := ui.TerminalDimensions()
+	issueDetails := widgets.NewParagraph()
+	issueDetails.Title = "Issue Details"
+	issueDetails.Text = "Select an issue to see details."
+	issueDetails.SetRect(termWidth, 3, termWidth/2, termHeight-5)
+	return issueDetails
 }
