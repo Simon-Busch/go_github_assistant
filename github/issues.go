@@ -60,7 +60,6 @@ func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 			log.Fatalf("Error: received non-200 response code: %d", resp.StatusCode)
 			return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
 		}
-		fmt.Printf("Rsp body %+v",resp.Body)
 
 		var issuesPage IssuesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&issuesPage); err != nil {
@@ -81,7 +80,7 @@ func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 	return &allIssues, nil
 }
 
-func fetchComments(commentsURL, ghUsername, ghToken string) ([]Comment, error) {
+func FetchComments(commentsURL, ghUsername, ghToken string) ([]Comment, error) {
 	req, err := http.NewRequest("GET", commentsURL, nil)
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)
