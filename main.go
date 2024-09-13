@@ -19,20 +19,17 @@ func main() {
 		panic("please provide a .env file with GITHUB_USERNAME and GITHUB_TOKEN")
 	}
 	issuesResponse, err := github.FetchIssues(ghUserName, ghToken)
-	prToReview, err := github.FetchReviewRequests(ghUserName, ghToken)
 	if err != nil {
 		log.Fatalf("Error fetching issues: %v", err)
 	}
-	issuesRaw := issuesResponse.Items
-	var issues []github.Issue
-	var closedIssues []github.Issue
-	for i, issue := range issuesResponse.Items {
-		if issue.State == "open" {
-			issues = append(issues, issuesRaw[i])
-		} else {
-			closedIssues = append(closedIssues, issuesRaw[i])
-		}
+	prToReview, err := github.FetchReviewRequests(ghUserName, ghToken)
+	if err != nil {
+		log.Fatalf("Error fetching PRs: %v", err)
 	}
+	fmt.Printf("test prToReview: %+v", prToReview)
+	openIssues := issuesResponse.GetAllOpenedIssues()
+	closedIssues := issuesResponse.GetAllClosedIssues()
+	var currentIssues []github.Issue
 
 	if err := ui.Init(); err != nil {
 		log.Fatal(err)
@@ -41,24 +38,33 @@ func main() {
 
 	termWidth, termHeight := ui.TerminalDimensions()
 
-	renderWaitingScreen(len(issues), len(closedIssues), ghUserName, prToReview.TotalCount)
-	time.Sleep(2 * time.Second)
+	renderWaitingScreen(len(openIssues), len(closedIssues), ghUserName, prToReview.TotalCount)
+	time.Sleep(1 * time.Second)
 	ui.Clear()
-
-	actionsTabs := renderHeader()
-	issuesList := renderIssues(issues)
-	issueDetails := renderIssueDetails()
-	footer := renderFooter()
-
-	ui.Render(actionsTabs, issuesList, issueDetails, footer)
 
 	selectedIndex := 0
 	showComments := false
 	commentsText := ""
 	showHelper := false
+	showClosedIssues := false
+	// showPr := false
 	var help *widgets.Paragraph
+	var issuesList *widgets.List
 
-	updateIssueDetails(issues,selectedIndex, showComments, commentsText, issueDetails, issuesList)
+	actionsTabs := renderHeader()
+	issueDetails := renderIssueDetails()
+	footer := renderFooter(len(openIssues), len(closedIssues), ghUserName, prToReview.TotalCount)
+	if showClosedIssues {
+		currentIssues = closedIssues
+		issuesList = renderIssues(closedIssues)
+		updateIssueDetails(currentIssues,selectedIndex, showComments, commentsText, issueDetails, issuesList)
+	} else {
+		currentIssues = openIssues
+		issuesList = renderIssues(openIssues)
+		updateIssueDetails(currentIssues,selectedIndex, showComments, commentsText, issueDetails, issuesList)
+	}
+
+	ui.Render(actionsTabs, issuesList, issueDetails, footer)
 
 	uiEvents := ui.PollEvents()
 	for {
@@ -67,31 +73,33 @@ func main() {
 		case "q":// Quit on 'q' or Ctrl+C
 			return
 		case "<Down>":
-			if selectedIndex < len(issues)-1 {
+			if selectedIndex < len(currentIssues)-1 {
 				selectedIndex++
 				issuesList.ScrollDown()
-				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+				updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
-			if selectedIndex == len(issues)-1 {
+			if selectedIndex == len(currentIssues)-1 {
 				selectedIndex = 0
 				issuesList.ScrollTop()
-				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+				updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			commentsText = ""
+			showComments = false
 		case "<Up>":
 			if selectedIndex > 0 {
 				selectedIndex--
 				issuesList.ScrollUp()
-				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+				updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			if selectedIndex == 0 {
-				selectedIndex = len(issues) - 1
+				selectedIndex = len(currentIssues) - 1
 				issuesList.ScrollBottom()
-				updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+				updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			}
 			commentsText = ""
+			showComments = false
 		case "<Enter>":
-			issue := issues[selectedIndex]
+			issue := currentIssues[selectedIndex]
 			err := openBrowser(issue.URL)
 			if err != nil {
 				log.Printf("Failed to open browser: %v", err)
@@ -109,17 +117,36 @@ func main() {
 
 				help.SetRect(x0, y0, x1, y1)
 				help.Title = "Help"
-				help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n'h' to open help "
+				help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n<C-o> to toggle between open and closed issues.\n'h' to open help "
 			} else {
 				help = nil // Clear the help when toggling off
 			}
 		case "<C-o>":
-			//TODO - Not working
-			issues = closedIssues
-			issuesList := renderIssues(issues)
-			ui.Render(issuesList)
+			showClosedIssues = !showClosedIssues
+			if showClosedIssues {
+				currentIssues = closedIssues
+				issuesList = renderIssues(closedIssues)
+			} else {
+				currentIssues = openIssues
+				issuesList = renderIssues(openIssues)
+			}
+			selectedIndex = 0
+			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+			ui.Render(actionsTabs, issuesList, issueDetails, footer)
+		case "<C-p>":
+			// showPr = !showPr
+			// if showPr {
+			// 	currentIssues = prToReview.Items
+			// 	issuesList = renderIssues(prToReview.Items)
+			// } else {
+			// 	currentIssues = openIssues
+			// 	issuesList = renderIssues(openIssues)
+			// }
+			// selectedIndex = 0
+			// updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+			// ui.Render(actionsTabs, issuesList, issueDetails, footer)
 		case "<C-c>":
-			issue := issues[selectedIndex]
+			issue := currentIssues[selectedIndex]
 			if !showComments {
 				comments, err := github.FetchComments(issue.CommentsURL, ghUserName, ghToken)
 				if err != nil {
@@ -136,7 +163,7 @@ func main() {
 				}
 			}
 			showComments = !showComments
-			updateIssueDetails(issues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 		}
 		ui.Render(issuesList, issueDetails)
 		if showHelper && help != nil {
@@ -202,12 +229,12 @@ func renderHeader() *widgets.TabPane {
 	return actionsTabs
 }
 
-func renderFooter() *widgets.Paragraph {
+func renderFooter(openedIssues, closedIssues int, username string, prToReview int) *widgets.Paragraph {
 	termWidth, termHeight := ui.TerminalDimensions()
 	footer := widgets.NewParagraph()
 	footer.SetRect(0, termHeight-4, termWidth, termHeight)
-	footer.Title = "Help"
-	footer.Text = "Press 'h' to show help."
+	footer.Title = "Summary"
+	footer.Text = fmt.Sprintf("Open Issues: %d, Closed Issues: %d, User: %s, Pr to review: %d", openedIssues, closedIssues, username, prToReview)
 	return footer
 }
 

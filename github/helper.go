@@ -1,9 +1,23 @@
 package github
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 	"net/url"
 	"strings"
 )
+
+type Comment struct {
+	Body      		string `json:"body"`
+	User      		User `json:"user"`
+	CreatedAt 		string `json:"created_at"`
+}
+
+type User struct {
+	Login string `json:"login"`
+}
 
 func getNextPageURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
@@ -35,4 +49,35 @@ func extractRepoAndOrg(repoURL string) (string, string) {
 		return organization, repository
 	}
 	return "", ""
+}
+
+func FetchComments(commentsURL, ghUsername, ghToken string) ([]Comment, error) {
+	req, err := http.NewRequest("GET", commentsURL, nil)
+	if err != nil {
+		log.Fatalf("Error creating request: %v", err)
+		return nil, err
+	}
+
+	req.SetBasicAuth(ghUsername, ghToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making request: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error: received non-200 response code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
+	}
+
+	var comments []Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		log.Fatalf("Error decoding comments JSON: %v", err)
+		return nil, err
+	}
+
+	return comments, nil
 }

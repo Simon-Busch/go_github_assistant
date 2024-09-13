@@ -7,17 +7,23 @@ import (
 	"net/http"
 	"net/url"
 )
-type PullRequest struct {
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	URL       string `json:"html_url"`
-	State     string `json:"state"`
-	CreatedAt string `json:"created_at"`
-}
 
 type PullRequestResponse struct {
 	TotalCount int           `json:"total_count"`
 	Items      []PullRequest `json:"items"`
+}
+
+type PullRequest struct {
+	Title     			string `json:"title"`
+	Body      			string `json:"body"`
+	URL       			string `json:"html_url"`
+	State     			string `json:"state"`
+	CreatedAt 			string `json:"created_at"`
+	UpdatedAt 			string `json:"updated_at"`
+	CommentsURL 		string `json:"comments_url"`
+	Repository 			string `json:"repository"`
+	Organization 		string `json:"organization"`
+	RepositoryURL 	string `json:"repository_url"`
 }
 
 func FetchReviewRequests(ghUsername, ghToken string) (*PullRequestResponse, error) {

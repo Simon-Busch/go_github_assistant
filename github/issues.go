@@ -23,17 +23,7 @@ type Issue struct {
 	CommentsURL 		string `json:"comments_url"`
 	Repository 			string `json:"repository"`
 	Organization 		string `json:"organization"`
-	RepositoryURL string `json:"repository_url"`
-}
-
-type Comment struct {
-	Body      		string `json:"body"`
-	User      		User `json:"user"`
-	CreatedAt 		string `json:"created_at"`
-}
-
-type User struct {
-	Login string `json:"login"`
+	RepositoryURL 	string `json:"repository_url"`
 }
 
 func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
@@ -90,33 +80,22 @@ func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 	return &allIssues, nil
 }
 
-func FetchComments(commentsURL, ghUsername, ghToken string) ([]Comment, error) {
-	req, err := http.NewRequest("GET", commentsURL, nil)
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-		return nil, err
+func (i *IssuesResponse) GetAllOpenedIssues() []Issue {
+	var openedIssues []Issue
+	for _, issue := range i.Items {
+		if issue.State == "open" {
+			openedIssues = append(openedIssues, issue)
+		}
 	}
+	return openedIssues
+}
 
-	req.SetBasicAuth(ghUsername, ghToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error making request: %v", err)
-		return nil, err
+func (i *IssuesResponse) GetAllClosedIssues() []Issue {
+	var closedIssues []Issue
+	for _, issue := range i.Items {
+		if issue.State == "closed" {
+			closedIssues = append(closedIssues, issue)
+		}
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error: received non-200 response code: %d", resp.StatusCode)
-		return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
-	}
-
-	var comments []Comment
-	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
-		log.Fatalf("Error decoding comments JSON: %v", err)
-		return nil, err
-	}
-
-	return comments, nil
+	return closedIssues
 }
