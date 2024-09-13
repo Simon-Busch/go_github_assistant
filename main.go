@@ -19,6 +19,7 @@ func main() {
 		panic("please provide a .env file with GITHUB_USERNAME and GITHUB_TOKEN")
 	}
 	issuesResponse, err := github.FetchIssues(ghUserName, ghToken)
+	prToReview, err := github.FetchReviewRequests(ghUserName, ghToken)
 	if err != nil {
 		log.Fatalf("Error fetching issues: %v", err)
 	}
@@ -40,7 +41,7 @@ func main() {
 
 	termWidth, termHeight := ui.TerminalDimensions()
 
-	renderWaitingScreen(len(issues), len(closedIssues), ghUserName)
+	renderWaitingScreen(len(issues), len(closedIssues), ghUserName, prToReview.TotalCount)
 	time.Sleep(2 * time.Second)
 	ui.Clear()
 
@@ -227,18 +228,20 @@ func createAsciiFrames(text string) []string {
 	return frames
 }
 
-func renderWaitingScreen(openedIssues, closedIssues int, name string) {
+func renderWaitingScreen(openedIssues, closedIssues int, name string, prToReview int) {
 	termWidth, termHeight := ui.TerminalDimensions()
 
 	title := "GitHub Assistant"
 	open := fmt.Sprintf("Open Issues: %d", openedIssues)
 	closed := fmt.Sprintf("Closed Issues: %d", closedIssues)
+	pr := fmt.Sprintf("Pr to review: %d", prToReview)
 	user := fmt.Sprintf("User: %s", name)
 	frames := [][]string{
     createAsciiFrames(title),
     createAsciiFrames(open),
     createAsciiFrames(closed),
     createAsciiFrames(user),
+    createAsciiFrames(pr),
 	}
 
 	helpBoxWidth := termWidth / 2
