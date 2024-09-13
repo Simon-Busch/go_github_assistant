@@ -5,6 +5,7 @@ import (
 	"log"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/Simon-Busch/go_github_assistant/github"
 	"github.com/Simon-Busch/go_github_assistant/utils"
@@ -38,6 +39,11 @@ func main() {
 	defer ui.Close()
 
 	termWidth, termHeight := ui.TerminalDimensions()
+
+	renderWaitingScreen(len(issues), len(closedIssues), ghUserName)
+	time.Sleep(2 * time.Second)
+	ui.Clear()
+
 	actionsTabs := renderHeader()
 	issuesList := renderIssues(issues)
 	issueDetails := renderIssueDetails()
@@ -211,4 +217,50 @@ func renderIssueDetails() *widgets.Paragraph {
 	issueDetails.Text = "Select an issue to see details."
 	issueDetails.SetRect(termWidth, 3, termWidth/2, termHeight-5)
 	return issueDetails
+}
+
+func createAsciiFrames(text string) []string {
+	frames := []string{}
+	for i := 1; i <= len(text); i++ {
+		frames = append(frames, text[:i])
+	}
+	return frames
+}
+
+func renderWaitingScreen(openedIssues, closedIssues int, name string) {
+	termWidth, termHeight := ui.TerminalDimensions()
+
+	title := "GitHub Assistant"
+	open := fmt.Sprintf("Open Issues: %d", openedIssues)
+	closed := fmt.Sprintf("Closed Issues: %d", closedIssues)
+	user := fmt.Sprintf("User: %s", name)
+	frames := [][]string{
+    createAsciiFrames(title),
+    createAsciiFrames(open),
+    createAsciiFrames(closed),
+    createAsciiFrames(user),
+	}
+
+	helpBoxWidth := termWidth / 2
+	helpBoxHeight := termHeight / 4
+	x0 := (termWidth - helpBoxWidth) / 2
+	y0 := (termHeight - helpBoxHeight) / 2
+	x1 := x0 + helpBoxWidth
+	y1 := y0 + helpBoxHeight
+
+	asciiAnimation := widgets.NewParagraph()
+	asciiAnimation.SetRect(x0, y0, x1, y1)
+	asciiAnimation.TextStyle.Fg = ui.ColorGreen
+	ui.Render(asciiAnimation)
+
+	for _, frameSet := range frames {
+		for _, frame := range frameSet {
+			asciiAnimation.Text = frame
+			ui.Render(asciiAnimation)
+			time.Sleep(70 * time.Millisecond) // Control animation speed
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	ui.Clear()
 }
