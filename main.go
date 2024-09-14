@@ -47,7 +47,7 @@ func main() {
 	commentsText := ""
 	showHelper := false
 	showClosedIssues := false
-	showPr := false
+	// showPr := false
 	var help *widgets.Paragraph
 	var issuesList *widgets.List
 
@@ -134,20 +134,17 @@ func main() {
 			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			ui.Render(actionsTabs, issuesList, issueDetails, footer)
 		case "<C-p>":
-			showPr = !showPr
-			if showPr {
-				currentIssues = make([]github.Issue, len(prToReview.Items))
-				for i, pr := range prToReview.Items {
-					currentIssues[i] = github.Issue(pr)
-				}
-				issuesList = renderIssues(prToReview.Items)
-			} else {
-				currentIssues = openIssues
-				issuesList = renderIssues(openIssues)
-			}
-			selectedIndex = 0
-			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
-			ui.Render(actionsTabs, issuesList, issueDetails, footer)
+			// showPr = !showPr
+			// if showPr {
+			// 	currentIssues = prToReview.Items
+			// 	issuesList = renderIssues(prToReview.Items)
+			// } else {
+			// 	currentIssues = openIssues
+			// 	issuesList = renderIssues(openIssues)
+			// }
+			// selectedIndex = 0
+			// updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+			// ui.Render(actionsTabs, issuesList, issueDetails, footer)
 		case "<C-c>":
 			issue := currentIssues[selectedIndex]
 			if !showComments {
