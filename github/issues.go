@@ -9,21 +9,8 @@ import (
 )
 
 type IssuesResponse struct {
-	TotalCount 				int     `json:"total_count"`
-	Items      				[]Issue `json:"items"`
-}
-
-type Issue struct {
-	Title						string `json:"title"`
-	Body						string `json:"body"`
-	URL       			string `json:"html_url"`
-	State     			string `json:"state"`
-	CreatedAt 			string `json:"created_at"`
-	UpdatedAt 			string `json:"updated_at"`
-	CommentsURL 		string `json:"comments_url"`
-	Repository 			string `json:"repository"`
-	Organization 		string `json:"organization"`
-	RepositoryURL 	string `json:"repository_url"`
+	TotalCount 				int     		`json:"total_count"`
+	Items      				[]IssueOrPR `json:"items"`
 }
 
 func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
@@ -80,8 +67,8 @@ func FetchIssues(ghUsername, ghToken string) (*IssuesResponse, error) {
 	return &allIssues, nil
 }
 
-func (i *IssuesResponse) GetAllOpenedIssues() []Issue {
-	var openedIssues []Issue
+func (i *IssuesResponse) GetAllOpenedIssues() []IssueOrPR {
+	var openedIssues []IssueOrPR
 	for _, issue := range i.Items {
 		if issue.State == "open" {
 			openedIssues = append(openedIssues, issue)
@@ -90,8 +77,8 @@ func (i *IssuesResponse) GetAllOpenedIssues() []Issue {
 	return openedIssues
 }
 
-func (i *IssuesResponse) GetAllClosedIssues() []Issue {
-	var closedIssues []Issue
+func (i *IssuesResponse) GetAllClosedIssues() []IssueOrPR {
+	var closedIssues []IssueOrPR
 	for _, issue := range i.Items {
 		if issue.State == "closed" {
 			closedIssues = append(closedIssues, issue)

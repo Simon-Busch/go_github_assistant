@@ -26,10 +26,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error fetching PRs: %v", err)
 	}
-	fmt.Printf("test prToReview: %+v", prToReview)
+
 	openIssues := issuesResponse.GetAllOpenedIssues()
 	closedIssues := issuesResponse.GetAllClosedIssues()
-	var currentIssues []github.Issue
+
+	var (
+		selectedIndex = 0
+		showComments = false
+		commentsText = ""
+		showHelper = false
+		showClosedIssues = false
+		showPr = false
+		help *widgets.Paragraph
+		issuesList *widgets.List
+		currentIssues []github.IssueOrPR
+	)
 
 	if err := ui.Init(); err != nil {
 		log.Fatal(err)
@@ -42,14 +53,6 @@ func main() {
 	time.Sleep(1 * time.Second)
 	ui.Clear()
 
-	selectedIndex := 0
-	showComments := false
-	commentsText := ""
-	showHelper := false
-	showClosedIssues := false
-	// showPr := false
-	var help *widgets.Paragraph
-	var issuesList *widgets.List
 
 	actionsTabs := renderHeader()
 	issueDetails := renderIssueDetails()
@@ -70,7 +73,7 @@ func main() {
 	for {
 		e := <-uiEvents
 		switch e.ID {
-		case "q":// Quit on 'q' or Ctrl+C
+		case "q":// Quit on 'q'
 			return
 		case "<Down>":
 			if selectedIndex < len(currentIssues)-1 {
@@ -134,17 +137,17 @@ func main() {
 			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
 			ui.Render(actionsTabs, issuesList, issueDetails, footer)
 		case "<C-p>":
-			// showPr = !showPr
-			// if showPr {
-			// 	currentIssues = prToReview.Items
-			// 	issuesList = renderIssues(prToReview.Items)
-			// } else {
-			// 	currentIssues = openIssues
-			// 	issuesList = renderIssues(openIssues)
-			// }
-			// selectedIndex = 0
-			// updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
-			// ui.Render(actionsTabs, issuesList, issueDetails, footer)
+			showPr = !showPr
+			if showPr {
+				currentIssues = prToReview.Items
+				issuesList = renderIssues(prToReview.Items)
+			} else {
+				currentIssues = openIssues
+				issuesList = renderIssues(openIssues)
+			}
+			selectedIndex = 0
+			updateIssueDetails(currentIssues, selectedIndex, showComments, commentsText, issueDetails, issuesList)
+			ui.Render(actionsTabs, issuesList, issueDetails, footer)
 		case "<C-c>":
 			issue := currentIssues[selectedIndex]
 			if !showComments {
@@ -189,70 +192,40 @@ func openBrowser(url string) error {
 	return err
 }
 
-func updateIssueDetails(issues interface{} ,index int, showComments bool, commentsText string, issueDetails *widgets.Paragraph, issuesList *widgets.List) {
-	switch issues := issues.(type) {
-	case []github.Issue:
-		issue := issues[index]
-		issueText := fmt.Sprintf(
-			"Title: %s\n\nRepository: %s\nOrganization: %s\n\nState: %s\n\nURL: %s\nCreated At: %s\n\nDescription:\n\n%s",
-			issue.Title, issue.Repository, issue.Organization, issue.State, issue.URL, issue.CreatedAt, issue.Body)
-		if showComments && commentsText != "" {
-			issueText += fmt.Sprintf("\n\nComments:\n%s", commentsText)
-		}
-		issueDetails.Text = issueText
+func updateIssueDetails(issues []github.IssueOrPR ,index int, showComments bool, commentsText string, issueDetails *widgets.Paragraph, issuesList *widgets.List) {
+	if len(issues) == 0 {
+		issueDetails.Text = "No issues to show."
 		ui.Render(issuesList, issueDetails)
-	case []github.PullRequest:
-		pr := issues[index]
-		if len(issues) == 0 {
-			pr = github.PullRequest{}
-		}
-		prText := fmt.Sprintf(
-			"Title: %s\n\nRepository: %s\nOrganization: %s\n\nState: %s\n\nURL: %s\nCreated At: %s\n\nDescription:\n\n%s",
-			pr.Title, pr.Repository, pr.Organization, pr.State, pr.URL, pr.CreatedAt, pr.Body)
-		if showComments && commentsText != "" {
-			prText += fmt.Sprintf("\n\nComments:\n%s", commentsText)
-		}
-		issueDetails.Text = prText
-		ui.Render(issuesList, issueDetails)
+		return
 	}
+	issue := issues[index]
+	issueText := fmt.Sprintf(
+		"Title: %s\n\nRepository: %s\nOrganization: %s\n\nState: %s\n\nURL: %s\nCreated At: %s\n\nDescription:\n\n%s",
+		issue.Title, issue.Repository, issue.Organization, issue.State, issue.URL, issue.CreatedAt, issue.Body)
+	if showComments && commentsText != "" {
+		issueText += fmt.Sprintf("\n\nComments:\n%s", commentsText)
+	}
+	issueDetails.Text = issueText
+	ui.Render(issuesList, issueDetails)
 }
 
-
-func renderIssues(issues interface{}) *widgets.List {
+func renderIssues(issues []github.IssueOrPR) *widgets.List {
 	termWidth, termHeight := ui.TerminalDimensions()
 	issuesList := widgets.NewList()
-	switch issues := issues.(type) {
-	case []github.Issue:
-		issuesList.Title = "Issues"
-		issuesList.Rows = make([]string, len(issues))
-		for i, issue := range issues {
-			var color string
-			if issue.State == "open" {
-				color = "green"
-			} else {
-				color = "red"
-			}
-			issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, issue.Title, color)
-		}
-		issuesList.SelectedRowStyle.Fg = ui.ColorYellow
-		issuesList.SetRect(0, 3, termWidth/2, termHeight-5)
-	case []github.PullRequest:
-		issuesList.Title = "Pull Requests"
-		issuesList.Rows = make([]string, len(issues))
-		if len(issues) == 0 {
-			issuesList.Rows = []string{"No PRs to review."}
+
+	issuesList.Title = "Issues"
+	issuesList.Rows = make([]string, len(issues))
+	for i, issue := range issues {
+		var color string
+		if issue.State == "open" {
+			color = "green"
 		} else {
-			for i, pr := range issues {
-				var color string
-				if pr.State == "open" {
-					color = "green"
-				} else {
-					color = "red"
-				}
-				issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, pr.Title, color)
-			}
+			color = "red"
 		}
+		issuesList.Rows[i] = fmt.Sprintf("[%d] [%s](fg:%s)", i+1, issue.Title, color)
 	}
+	issuesList.SelectedRowStyle.Fg = ui.ColorYellow
+	issuesList.SetRect(0, 3, termWidth/2, termHeight-5)
 
 	return issuesList
 }

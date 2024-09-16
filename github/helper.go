@@ -15,6 +15,20 @@ type Comment struct {
 	CreatedAt 		string `json:"created_at"`
 }
 
+type IssueOrPR struct {
+	Title						string `json:"title"`
+	Body						string `json:"body"`
+	URL       			string `json:"html_url"`
+	State     			string `json:"state"`
+	CreatedAt 			string `json:"created_at"`
+	UpdatedAt 			string `json:"updated_at"`
+	CommentsURL 		string `json:"comments_url"`
+	Repository 			string `json:"repository"`
+	Organization 		string `json:"organization"`
+	RepositoryURL 	string `json:"repository_url"`
+}
+
+
 type User struct {
 	Login string `json:"login"`
 }
