@@ -77,18 +77,20 @@ func OpenBrowser(url string) error {
 	return err
 }
 
-func RenderHeader() *widgets.TabPane {
+func RenderHeader(user string) *widgets.Paragraph {
 	termWidth, _ := termui.TerminalDimensions()
-	actionsTabs := widgets.NewTabPane("Github Assistant", "Issues", "Pull Requests", "Help")
-	actionsTabs.SetRect(0, 0, termWidth, 3)
-	return actionsTabs
+	header := widgets.NewParagraph()
+	header.Title = "Github Assistant v1.0.0"
+	header.Text = fmt.Sprintf("Welcome %s, press 'h' for help.", user)
+	header.SetRect(0, 0, termWidth, 3)
+	return header
 }
 
 func RenderIssues(issues []github.IssueOrPR) *widgets.List {
 	termWidth, termHeight := termui.TerminalDimensions()
 	issuesList := widgets.NewList()
 
-	issuesList.Title = "Issues"
+	issuesList.Title = "Issues and Pull requests"
 	issuesList.Rows = make([]string, len(issues))
 	for i, issue := range issues {
 		var color string
@@ -117,7 +119,7 @@ func RenderHelp() *widgets.Paragraph {
 
 	help.SetRect(x0, y0, x1, y1)
 	help.Title = "Help"
-	help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n<C-o> to toggle between open and closed issues.\n'h' to open help "
+	help.Text = "List of actions: \n\n'q' to quit \n<Enter> to open the issue in the browser \n<C-c> to toggle comments.\n<C-p> to toggle pull request to review.\n<C-o> to toggle between open and closed issues.\n'h' to open / close help "
 	return help;
 }
 

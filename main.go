@@ -50,7 +50,7 @@ func main() {
 	time.Sleep(1 * time.Second)
 	termui.Clear()
 
-	actionsTabs := ui.RenderHeader()
+	actionsTabs := ui.RenderHeader(ghUserName)
 	issueDetails := ui.RenderIssueDetails()
 	footer := ui.RenderFooter(len(openIssues), len(closedIssues), ghUserName, prToReview.TotalCount)
 	if showClosedIssues {
