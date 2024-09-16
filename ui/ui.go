@@ -36,12 +36,12 @@ func RenderWaitingScreen(openedIssues, closedIssues int, name string, prToReview
     createAsciiFrames(pr),
 	}
 
-	helpBoxWidth := termWidth / 2
-	helpBoxHeight := termHeight / 4
-	x0 := (termWidth - helpBoxWidth) / 2
-	y0 := (termHeight - helpBoxHeight) / 2
-	x1 := x0 + helpBoxWidth
-	y1 := y0 + helpBoxHeight
+	waitingScreenWidth := termWidth / 2
+	waitingScreenHeight := termHeight / 4
+	x0 := (termWidth - waitingScreenWidth) / 2
+	y0 := (termHeight - waitingScreenHeight) / 2
+	x1 := x0 + waitingScreenWidth
+	y1 := y0 + waitingScreenHeight
 
 	asciiAnimation := widgets.NewParagraph()
 	asciiAnimation.SetRect(x0, y0, x1, y1)
